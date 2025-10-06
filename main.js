@@ -6,40 +6,47 @@ const program = new Command();
 program
   .option('-i, --input <path>', 'шлях до вхідного файлу')
   .option('-o, --output <path>', 'шлях для вихідного файлу')
-  .option('-d, --display', 'вивести результат у консоль');
+  .option('-d, --display', 'вивести результат у консоль')
+  .option('-m, --mfo', 'відображати код МФО банку')
+  .option('-n, --normal', 'фільтрувати за статусом "Нормальний"');
 
 program.parse(process.argv);
 const options = program.opts();
 
-// Ручна перевірка обов'язкового параметра
 if (!options.input) {
   console.error('Please, specify input file');
   process.exit(1);
 }
 
-// Решта вашого коду залишається без змін
 try {
   const data = fs.readFileSync(options.input, 'utf8');
-  const jsonData = JSON.parse(data);
-  
-  console.log('Файл успішно прочитано!');
-  console.log(`Знайдено записів: ${jsonData.length}`);
-  
-  if (options.display) {
-    console.log('\nПерші 2 записи:');
-    console.log(JSON.stringify(jsonData.slice(0, 2), null, 2));
+  const banks = JSON.parse(data);
+
+  let filteredBanks = banks;
+  if (options.normal) {
+    filteredBanks = banks.filter(bank => bank.COD_STATE === 1);
   }
-  
-  if (options.output) {
-    fs.writeFileSync(options.output, JSON.stringify(jsonData.slice(0, 2), null, 2));
-    console.log(`Результат записано у файл: ${options.output}`);
+
+  const result = filteredBanks.map(bank => {
+    if (options.mfo) {
+      return `${bank.ID_NBU} ${bank.SHORTNAME}`;
+    }
+    return bank.SHORTNAME;
+  }).join('\n');
+
+  if (options.display && result) {
+    console.log(result);
   }
-  
+
+  if (options.output && result) {
+    fs.writeFileSync(options.output, result);
+  }
+
 } catch (error) {
   if (error.code === 'ENOENT') {
     console.error('Cannot find input file');
   } else {
-    console.error('Помилка читання файлу:', error.message);
+    console.error('Помилка обробки даних:', error.message);
   }
   process.exit(1);
 }
